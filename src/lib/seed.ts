@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { SCHEMA_STATEMENTS, SCHEMA_TABLES } from "@/db/bootstrap-sql";
 import {
   categories,
   pages,
@@ -320,14 +322,49 @@ const PLAN_SEED = [
   { name: "VIP de por vida", price: "79.99 USD", durationDays: 0, description: "Un único pago y acceso VIP para siempre.", paymentUrl: "https://www.paypal.com/" },
 ];
 
+/** Credenciales del primer administrador: se pueden definir con variables de entorno. */
+function initialAdmin() {
+  return {
+    username: process.env.ADMIN_USERNAME?.trim() || DEFAULT_ADMIN.username,
+    email: (process.env.ADMIN_EMAIL?.trim() || DEFAULT_ADMIN.email).toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN.password,
+  };
+}
+
+const SCHEMA_LOCK_KEY = 74295101;
+
+/** Crea las tablas si faltan (por ejemplo, en una base de datos nueva de Vercel/Neon). */
+async function ensureSchema(): Promise<void> {
+  const names = sql.join(
+    SCHEMA_TABLES.map((t) => sql`${t}`),
+    sql`, `,
+  );
+  const res = await db.execute(
+    sql`select count(*)::int as n from information_schema.tables where table_schema = current_schema() and table_name in (${names})`,
+  );
+  const existing = Number((res.rows[0] as { n?: number } | undefined)?.n ?? 0);
+  if (existing >= SCHEMA_TABLES.length) return;
+  console.log(`[db] Creando tablas (${existing}/${SCHEMA_TABLES.length} ya existen)...`);
+  await db.transaction(async (tx) => {
+    // Evita que dos instancias creen las tablas a la vez.
+    await tx.execute(sql.raw(`select pg_advisory_xact_lock(${SCHEMA_LOCK_KEY})`));
+    for (const statement of SCHEMA_STATEMENTS) {
+      await tx.execute(sql.raw(statement));
+    }
+  });
+  console.log("[db] Tablas listas.");
+}
+
 let seedPromise: Promise<void> | null = null;
 
 export function ensureSeeded(): Promise<void> {
   if (!seedPromise) {
-    seedPromise = runSeed().catch((err) => {
-      seedPromise = null;
-      throw err;
-    });
+    seedPromise = ensureSchema()
+      .then(runSeed)
+      .catch((err) => {
+        seedPromise = null;
+        throw err;
+      });
   }
   return seedPromise;
 }
@@ -341,12 +378,13 @@ async function runSeed(): Promise<void> {
       .returning({ id: siteSettings.id });
     if (inserted.length === 0) return;
 
+    const admin = initialAdmin();
     await tx
       .insert(users)
       .values({
-        username: DEFAULT_ADMIN.username,
-        email: DEFAULT_ADMIN.email,
-        passwordHash: hashPassword(DEFAULT_ADMIN.password),
+        username: admin.username,
+        email: admin.email,
+        passwordHash: hashPassword(admin.password),
         role: "admin",
       })
       .onConflictDoNothing();

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { desc, eq, gt, sql } from "drizzle-orm";
-import { FaCog, FaCrown, FaEdit, FaExclamationTriangle, FaEye, FaFileAlt, FaGamepad, FaInbox, FaPlus, FaUsers } from "react-icons/fa";
+import { FaCog, FaCrown, FaEdit, FaExclamationTriangle, FaEye, FaFileAlt, FaGamepad, FaHdd, FaInbox, FaPlus, FaUsers } from "react-icons/fa";
+import { getUploadLimits } from "@/lib/uploads";
 import { AdminTitle, StatCard } from "@/components/admin/AdminUi";
 import { AccessBadge } from "@/components/Bits";
 import { db } from "@/db";
@@ -104,6 +105,31 @@ export default async function AdminDashboard() {
           </div>
         </Link>
       </div>
+
+      {(() => {
+        const limits = getUploadLimits();
+        const mb = (n: number) => `${Math.round(n / (1024 * 1024))} MB`;
+        return (
+          <div className={cn(cardCls, "flex flex-wrap items-center gap-3 p-4 text-sm text-zinc-300")}>
+            <FaHdd className="text-lg text-brand" />
+            <span>
+              Subida de archivos:{" "}
+              {limits.mode === "blob" ? (
+                <b className="text-emerald-300">Vercel Blob activo (imágenes y videos grandes permitidos)</b>
+              ) : (
+                <b className="text-white">
+                  Base de datos · máx. {mb(limits.maxImage)} por imagen y {mb(limits.maxVideo)} por video
+                </b>
+              )}
+            </span>
+            {limits.mode === "db" && limits.vercel && (
+              <span className="text-xs text-zinc-500">
+                Para subir videos en Vercel conecta un Blob store (Storage → Blob) o usa enlaces de YouTube/Vimeo.
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div className={cn(cardCls, "p-5")}>

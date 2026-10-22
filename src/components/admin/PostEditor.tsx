@@ -194,7 +194,7 @@ export function PostEditor({
                 accept="video/*"
                 preview="none"
                 placeholder="https://youtube.com/watch?v=... , Vimeo, .mp4 o sube un archivo"
-                hint="Admite enlaces de YouTube, Vimeo, archivos .mp4/.webm o subir un video (máx. 150 MB)."
+                hint="Admite enlaces de YouTube, Vimeo o archivos .mp4/.webm. También puedes subir un video; en Vercel necesitas activar Vercel Blob (si no, usa YouTube/Vimeo)."
               />
             </div>
           </Card>

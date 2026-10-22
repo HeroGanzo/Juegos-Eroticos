@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
 import { cookies } from "next/headers";
 import { AgeGate } from "@/components/AgeGate";
+import { SetupScreen } from "@/components/SetupScreen";
 import { getViewer } from "@/lib/auth";
+import { getDbStatus } from "@/lib/db-status";
 import { getSettings } from "@/lib/settings";
 import "./globals.css";
 
@@ -19,6 +21,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const dbStatus = await getDbStatus();
+  if (!dbStatus.ok) {
+    return (
+      <html lang="es">
+        <body className="min-h-screen font-sans text-zinc-100 antialiased">
+          <SetupScreen status={dbStatus} />
+        </body>
+      </html>
+    );
+  }
+
   const settings = await getSettings();
   const viewer = await getViewer();
   const cookieStore = await cookies();

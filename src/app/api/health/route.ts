@@ -1,21 +1,11 @@
-import { db } from "@/db";
-import { sql } from "drizzle-orm";
-import { ensureSeeded } from "@/lib/seed";
+import { getDbStatus } from "@/lib/db-status";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
-    await db.execute(sql`select 1`);
-  } catch {
-    return Response.json({ ok: false }, { status: 500 });
+  const status = await getDbStatus();
+  if (!status.ok) {
+    return Response.json({ ok: false, problem: status.problem, code: status.code }, { status: 503 });
   }
-  let seeded = true;
-  try {
-    await ensureSeeded();
-  } catch (err) {
-    seeded = false;
-    console.error("[health] seed failed", err);
-  }
-  return Response.json({ ok: true, seeded });
+  return Response.json({ ok: true });
 }

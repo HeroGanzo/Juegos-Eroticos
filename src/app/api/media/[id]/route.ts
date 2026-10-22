@@ -16,7 +16,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const total = data.byteLength;
   const headers: Record<string, string> = {
     "Content-Type": row.mimeType,
-    "Cache-Control": "public, max-age=31536000, immutable",
+    // s-maxage permite que la CDN de Vercel guarde la imagen y no consulte la base de datos cada vez.
+    "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
     "Accept-Ranges": "bytes",
     "X-Content-Type-Options": "nosniff",
   };

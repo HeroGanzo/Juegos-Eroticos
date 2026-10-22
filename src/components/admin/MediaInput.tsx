@@ -3,16 +3,8 @@
 import { useRef, useState } from "react";
 import { FaArrowLeft, FaArrowRight, FaPlus, FaTimes, FaUpload } from "react-icons/fa";
 import { btnSecondary, inputCls, labelCls } from "@/lib/ui";
+import { uploadFile } from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
-
-export async function uploadFile(file: File): Promise<string> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body: fd });
-  const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!res.ok || !json.url) throw new Error(json.error || "Error al subir el archivo");
-  return json.url;
-}
 
 export function MediaInput({
   label,
