@@ -2,7 +2,7 @@ import { cache } from "react";
 import { getDatabaseInfo } from "@/db";
 import { ensureSeeded } from "./seed";
 
-export type DbProblem = "missing" | "localhost" | "connection" | "auth" | "ssl" | "schema";
+export type DbProblem = "missing" | "localhost" | "connection" | "auth" | "ssl" | "schema" | "admin";
 
 export type DbStatus =
   | { ok: true }
@@ -39,7 +39,9 @@ export const getDbStatus = cache(async (): Promise<DbStatus> => {
     const { code, message } = rootCause(err);
     console.error(`[db] Base de datos no disponible (${code}):`, message);
     let problem: DbProblem = "schema";
-    if (NETWORK_CODES.includes(code) || /timeout|terminated|connect/i.test(message)) {
+    if (code === "ADMIN_PASSWORD_REQUIRED") {
+      problem = "admin";
+    } else if (NETWORK_CODES.includes(code) || /timeout|terminated|connect/i.test(message)) {
       problem = info.isLocal && info.onVercel ? "localhost" : "connection";
     } else if (AUTH_CODES.includes(code)) {
       problem = "auth";
