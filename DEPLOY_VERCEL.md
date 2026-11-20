@@ -1,5 +1,7 @@
 # Desplegar "Juegos Eróticos" en Vercel
 
+Si querés migrar el sitio a un VPS de Hostinger, consultá la [guía del README](README.md).
+
 El sitio necesita una base de datos **PostgreSQL en la nube**. La base de datos de la vista
 previa (`127.0.0.1`) solo existe en el entorno de desarrollo, no en Vercel.
 

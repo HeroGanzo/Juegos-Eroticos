@@ -1,0 +1,25 @@
+[Unit]
+Description=Juegos Eroticos (Next.js)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=juegos
+Group=juegos
+WorkingDirectory=/opt/juegos-eroticos
+EnvironmentFile=/etc/juegos-eroticos/app.env
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=REQUIRE_SECURE_ADMIN_BOOTSTRAP=true
+ExecStart=/opt/node22/bin/node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/juegos-eroticos/.next/cache
+
+[Install]
+WantedBy=multi-user.target

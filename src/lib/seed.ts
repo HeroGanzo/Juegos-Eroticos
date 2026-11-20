@@ -324,10 +324,16 @@ const PLAN_SEED = [
 
 /** Credenciales del primer administrador: se pueden definir con variables de entorno. */
 function initialAdmin() {
+  const password = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN.password;
+  if (process.env.REQUIRE_SECURE_ADMIN_BOOTSTRAP === "true" && password.trim().length < 16) {
+    throw Object.assign(new Error("Define ADMIN_PASSWORD con al menos 16 caracteres para crear el administrador inicial."), {
+      code: "ADMIN_PASSWORD_REQUIRED",
+    });
+  }
   return {
     username: process.env.ADMIN_USERNAME?.trim() || DEFAULT_ADMIN.username,
     email: (process.env.ADMIN_EMAIL?.trim() || DEFAULT_ADMIN.email).toLowerCase(),
-    password: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN.password,
+    password,
   };
 }
 
