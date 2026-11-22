@@ -20,15 +20,19 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
 export type AccessLevel = "public" | "registered" | "vip";
 export type UserRole = "user" | "admin";
 export type PostStatus = "published" | "draft";
-export type PageType = "content" | "games" | "categories" | "about" | "contact" | "vip" | "link";
+export type PageType = "content" | "games" | "wishlist" | "categories" | "about" | "contact" | "vip" | "link";
 export type MenuSection = "header" | "footer" | "both" | "none";
 export type VipRequestStatus = "pending" | "approved" | "rejected";
+
+export type DownloadLinkAccess = "common" | "vip";
 
 export type DownloadLink = {
   label: string;
   url: string;
   platform: string;
   size: string;
+  /** "common" = visible para quien puede ver la publicación; "vip" = solo VIP/admin. */
+  access?: DownloadLinkAccess;
 };
 
 export type PageFilters = {
@@ -135,6 +139,19 @@ export const pages = pgTable("pages", {
   externalUrl: text("external_url").notNull().default(""),
   filters: jsonb("filters").$type<PageFilters>().notNull().default({}),
   published: boolean("published").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const plannedGames = pgTable("planned_games", {
+  id: serial("id").primaryKey(),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => pages.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
+  description: text("description").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

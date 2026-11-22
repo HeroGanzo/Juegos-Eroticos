@@ -4,7 +4,7 @@ import { AdminTitle } from "@/components/admin/AdminUi";
 import { PageEditor } from "@/components/admin/PageEditor";
 import { db } from "@/db";
 import { pages } from "@/db/schema";
-import { getAllCategories, getAllPostTypes } from "@/lib/posts";
+import { getAllCategories, getAllPostTypes, getPlannedGamesForPage } from "@/lib/posts";
 
 export default async function EditPagePage({
   params,
@@ -24,13 +24,14 @@ export default async function EditPagePage({
   ]);
   const page = rows[0];
   if (!page) notFound();
+  const planned = page.type === "wishlist" ? await getPlannedGamesForPage(page.id) : [];
 
   return (
     <div>
       <AdminTitle title="Editar página" subtitle={page.title} />
       <PageEditor
         savedNotice={sp.ok === "creado" ? "¡Página creada correctamente!" : undefined}
-        categories={cats.map((c) => ({ slug: c.slug, name: c.name }))}
+        categories={cats.map((c) => ({ id: c.id, slug: c.slug, name: c.name, color: c.color }))}
         postTypes={types.map((t) => ({ slug: t.slug, name: t.name, icon: t.icon }))}
         initial={{
           id: page.id,
@@ -44,6 +45,7 @@ export default async function EditPagePage({
           externalUrl: page.externalUrl,
           filters: page.filters ?? {},
           published: page.published,
+          plannedGames: planned.map((g) => ({ id: g.id, name: g.name, categoryId: g.category?.id ?? null, description: g.description })),
         }}
       />
     </div>

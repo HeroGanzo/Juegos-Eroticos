@@ -98,10 +98,14 @@ export function PostEditor({
   };
 
   const links = data.downloadLinks;
-  const updateLink = (i: number, key: "label" | "url" | "platform" | "size", value: string) =>
+  const updateLink = (i: number, key: "label" | "url" | "platform" | "size" | "access", value: string) =>
     set(
       "downloadLinks",
-      links.map((l, k) => (k === i ? { ...l, [key]: value } : l)),
+      links.map((l, k) => {
+        if (k !== i) return l;
+        if (key === "access") return { ...l, access: value === "vip" ? "vip" : "common" };
+        return { ...l, [key]: value };
+      }),
     );
 
   return (
@@ -202,7 +206,7 @@ export function PostEditor({
           <Card title={`Enlaces de descarga (${links.length})`}>
             <div className="space-y-3">
               {links.map((l, i) => (
-                <div key={i} className="grid gap-2 rounded-xl border border-white/10 bg-black/30 p-3 md:grid-cols-[1fr_1.6fr_130px_100px_auto]">
+                <div key={i} className="grid gap-2 rounded-xl border border-white/10 bg-black/30 p-3 md:grid-cols-[1fr_1.6fr_130px_100px_150px_auto]">
                   <input value={l.label} onChange={(e) => updateLink(i, "label", e.target.value)} placeholder="Nombre (MEGA, Drive...)" className={inputCls} />
                   <input value={l.url} onChange={(e) => updateLink(i, "url", e.target.value)} placeholder="https://..." className={inputCls} />
                   <select value={l.platform} onChange={(e) => updateLink(i, "platform", e.target.value)} className={inputCls}>
@@ -214,6 +218,10 @@ export function PostEditor({
                     ))}
                   </select>
                   <input value={l.size} onChange={(e) => updateLink(i, "size", e.target.value)} placeholder="Tamaño" className={inputCls} />
+                  <select value={l.access ?? "common"} onChange={(e) => updateLink(i, "access", e.target.value)} className={inputCls} title="Quién puede ver este enlace">
+                    <option value="common">Común</option>
+                    <option value="vip">VIP</option>
+                  </select>
                   <button
                     type="button"
                     onClick={() => set("downloadLinks", links.filter((_, k) => k !== i))}
@@ -226,11 +234,14 @@ export function PostEditor({
               ))}
               <button
                 type="button"
-                onClick={() => set("downloadLinks", [...links, { label: "", url: "", platform: data.platforms[0] ?? "", size: data.fileSize }])}
+                onClick={() => set("downloadLinks", [...links, { label: "", url: "", platform: data.platforms[0] ?? "", size: data.fileSize, access: "common" }])}
                 className={btnSecondary}
               >
                 <FaPlus /> Añadir enlace de descarga
               </button>
+              <p className="text-xs text-zinc-500">
+                <b className="text-zinc-300">Común:</b> lo ve quien puede ver la publicación. <b className="text-zinc-300">VIP:</b> solo usuarios VIP y administradores.
+              </p>
             </div>
           </Card>
 

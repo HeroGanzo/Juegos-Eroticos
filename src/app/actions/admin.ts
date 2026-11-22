@@ -7,6 +7,7 @@ import {
   categories,
   contactMessages,
   pages,
+  plannedGames,
   postCategories,
   postTypes,
   posts,
@@ -16,6 +17,7 @@ import {
   vipRequests,
   type AccessLevel,
   type DownloadLink,
+  type DownloadLinkAccess,
   type MenuSection,
   type PageFilters,
   type PageType,
@@ -133,6 +135,7 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
         url: clip(l.url, 2000),
         platform: clip(l.platform, 50),
         size: clip(l.size, 50),
+        access: (l.access === "vip" ? "vip" : "common") as DownloadLinkAccess,
       }))
       .filter((l) => l.url)
       .slice(0, 40),
@@ -272,6 +275,13 @@ export async function deletePostTypeForm(formData: FormData): Promise<void> {
 
 /* ---------------------------------- Páginas ------------------------------ */
 
+export type PlannedGameInput = {
+  id?: number;
+  name: string;
+  categoryId: number | null;
+  description: string;
+};
+
 export type PageInput = {
   id?: number;
   title: string;
@@ -284,6 +294,7 @@ export type PageInput = {
   externalUrl: string;
   filters: PageFilters;
   published: boolean;
+  plannedGames?: PlannedGameInput[];
 };
 
 export async function savePage(input: PageInput): Promise<SaveResult> {
@@ -315,15 +326,41 @@ export async function savePage(input: PageInput): Promise<SaveResult> {
     filters,
     published: !!input.published,
   };
+  const planned = (input.plannedGames ?? [])
+    .map((g) => ({
+      name: clip(g.name, 200),
+      categoryId: Number(g.categoryId) > 0 ? Number(g.categoryId) : null,
+      description: clip(g.description, 2000),
+    }))
+    .filter((g) => g.name)
+    .slice(0, 500);
   let id = existingId;
-  if (id) {
-    await db
-      .update(pages)
-      .set({ ...values, updatedAt: new Date() })
-      .where(eq(pages.id, id));
-  } else {
-    const [row] = await db.insert(pages).values(values).returning({ id: pages.id });
-    id = row.id;
+  try {
+    await db.transaction(async (tx) => {
+      if (id) {
+        await tx
+          .update(pages)
+          .set({ ...values, updatedAt: new Date() })
+          .where(eq(pages.id, id));
+      } else {
+        const [row] = await tx.insert(pages).values(values).returning({ id: pages.id });
+        id = row.id;
+      }
+      if (!id) return;
+      if (type === "wishlist") {
+        await tx.delete(plannedGames).where(eq(plannedGames.pageId, id));
+        if (planned.length) {
+          await tx.insert(plannedGames).values(
+            planned.map((g, i) => ({ pageId: id as number, ...g, sortOrder: i })),
+          );
+        }
+      } else {
+        await tx.delete(plannedGames).where(eq(plannedGames.pageId, id));
+      }
+    });
+  } catch (err) {
+    console.error("[savePage]", err);
+    return { ok: false, error: "No se pudo guardar la página. Revisa los datos e inténtalo de nuevo." };
   }
   refresh();
   return { ok: true, id };

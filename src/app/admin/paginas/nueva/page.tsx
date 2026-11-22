@@ -8,7 +8,7 @@ export default async function NewPagePage() {
     <div>
       <AdminTitle title="Nueva página" subtitle="Elige el tipo de página, su público y dónde aparece en el menú." />
       <PageEditor
-        categories={cats.map((c) => ({ slug: c.slug, name: c.name }))}
+        categories={cats.map((c) => ({ id: c.id, slug: c.slug, name: c.name, color: c.color }))}
         postTypes={types.map((t) => ({ slug: t.slug, name: t.name, icon: t.icon }))}
         initial={{
           title: "",
@@ -21,6 +21,7 @@ export default async function NewPagePage() {
           externalUrl: "",
           filters: {},
           published: true,
+          plannedGames: [],
         }}
       />
     </div>
