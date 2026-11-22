@@ -46,6 +46,7 @@ export default async function EditPostPage({
           fileSize: post.fileSize,
           status: post.status,
           featured: post.featured,
+          primaryCategoryId: post.primaryCategoryId ?? null,
         }}
       />
     </div>

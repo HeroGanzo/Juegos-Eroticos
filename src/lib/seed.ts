@@ -349,7 +349,11 @@ async function ensureSchema(): Promise<void> {
     sql`select count(*)::int as n from information_schema.tables where table_schema = current_schema() and table_name in (${names})`,
   );
   const existing = Number((res.rows[0] as { n?: number } | undefined)?.n ?? 0);
-  if (existing >= SCHEMA_TABLES.length) return;
+  const colRes = await db.execute(
+    sql`select count(*)::int as n from information_schema.columns where table_schema = current_schema() and table_name = 'posts' and column_name = 'primary_category_id'`,
+  );
+  const hasPrimaryCategory = Number((colRes.rows[0] as { n?: number } | undefined)?.n ?? 0) > 0;
+  if (existing >= SCHEMA_TABLES.length && hasPrimaryCategory) return;
   console.log(`[db] Creando tablas (${existing}/${SCHEMA_TABLES.length} ya existen)...`);
   await db.transaction(async (tx) => {
     // Evita que dos instancias creen las tablas a la vez.

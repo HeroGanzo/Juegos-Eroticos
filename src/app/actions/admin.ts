@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne, or, sql } from "drizzle-orm";
+import { and, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
@@ -88,6 +88,7 @@ export type PostInput = {
   slug: string;
   postTypeId: number | null;
   categoryIds: number[];
+  primaryCategoryId: number | null;
   excerpt: string;
   description: string;
   rating: number;
@@ -115,10 +116,16 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
   const accessLevel: AccessLevel = isAccessLevel(input.accessLevel) ? input.accessLevel : "public";
   const status: PostStatus = input.status === "draft" ? "draft" : "published";
   const rating = clamp(Number(input.rating) || 0, 0, 5);
+  const catIds = Array.from(
+    new Set((input.categoryIds ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0)),
+  );
+  const primaryRaw = Number(input.primaryCategoryId);
+  const primaryCategoryId = Number.isInteger(primaryRaw) && catIds.includes(primaryRaw) ? primaryRaw : null;
   const values = {
     title,
     slug,
     postTypeId: input.postTypeId ? Number(input.postTypeId) : null,
+    primaryCategoryId,
     excerpt: clip(input.excerpt, 600),
     description: clip(input.description, 60000),
     rating: Math.round(rating * 10) / 10,
@@ -148,9 +155,6 @@ export async function savePost(input: PostInput): Promise<SaveResult> {
     status,
     featured: !!input.featured,
   };
-  const catIds = Array.from(
-    new Set((input.categoryIds ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0)),
-  );
   let postId = existingId;
   try {
     await db.transaction(async (tx) => {
@@ -210,7 +214,16 @@ export async function saveCategoryForm(formData: FormData): Promise<void> {
   const id = int(formData.get("id"));
   const name = str(formData.get("name"), 80);
   if (!name) return;
-  const slug = await uniqueSlug("categories", slugify(str(formData.get("slug"), 80) || name), id || undefined);
+  const baseSlug = slugify(str(formData.get("slug"), 80) || name);
+  if (!id) {
+    const existing = await db
+      .select({ id: categories.id, name: categories.name, slug: categories.slug })
+      .from(categories)
+      .where(or(ilike(categories.name, name), eq(categories.slug, baseSlug)))
+      .limit(1);
+    if (existing.length) return; // Evita duplicados por nombre o slug.
+  }
+  const slug = await uniqueSlug("categories", baseSlug, id || undefined);
   const colorRaw = str(formData.get("color"), 20);
   const values = {
     name,
@@ -237,7 +250,16 @@ export async function quickCreateCategory(
   await requireAdmin();
   const clean = clip(name, 80);
   if (!clean) return { ok: false, error: "Escribe un nombre" };
-  const slug = await uniqueSlug("categories", slugify(clean));
+  const slugBase = slugify(clean);
+  const existing = await db
+    .select({ id: categories.id, name: categories.name, slug: categories.slug, color: categories.color })
+    .from(categories)
+    .where(or(ilike(categories.name, clean), eq(categories.slug, slugBase)))
+    .limit(1);
+  if (existing.length) {
+    return { ok: true, category: existing[0] }; // Ya existe: devuelve la categoría en lugar de duplicar.
+  }
+  const slug = await uniqueSlug("categories", slugBase);
   const [row] = await db
     .insert(categories)
     .values({ name: clean, slug, sortOrder: 100 })

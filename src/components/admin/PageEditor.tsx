@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { FaArrowLeft, FaEye, FaPlus, FaSave, FaTrash } from "react-icons/fa";
+import { FaArrowLeft, FaClipboard, FaEye, FaPlus, FaSave, FaTrash } from "react-icons/fa";
 import { savePage, type PageInput } from "@/app/actions/admin";
 import type { AccessLevel, MenuSection, PageType } from "@/db/schema";
 import { ACCESS_INFO, ACCESS_LEVELS, MENU_SECTIONS, PAGE_TYPES, PLATFORMS, SORT_OPTIONS } from "@/lib/constants";
@@ -27,10 +27,55 @@ export function PageEditor({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(savedNotice ?? "");
   const [pending, startTransition] = useTransition();
+  const [importText, setImportText] = useState("");
+  const [importNotice, setImportNotice] = useState("");
 
   const set = <K extends keyof PageInput>(key: K, value: PageInput[K]) => setData((d) => ({ ...d, [key]: value }));
   const setFilter = (key: keyof PageInput["filters"], value: string) =>
     setData((d) => ({ ...d, filters: { ...d.filters, [key]: value || undefined } }));
+
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const catByName = new Map(categories.filter((c) => typeof c.id === "number").map((c) => [norm(c.name), c.id as number]));
+
+  const parseImport = (text: string) => {
+    const rows: { name: string; categoryId: number | null; description: string }[] = [];
+    const unmatched = new Set<string>();
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let started = 0;
+    // Salta la primera línea si parece una cabecera (nombre/categoría/descripción).
+    if (lines.length > 0) {
+      const first = norm(lines[0]);
+      if (first.includes("nombre") || first.includes("categor") || first.includes("descrip")) started = 1;
+    }
+    for (let i = started; i < lines.length; i++) {
+      const line = lines[i];
+      const parts = line.split("\t").length > 1 ? line.split("\t") : line.split(",").length > 1 ? line.split(",") : line.split(";");
+      const name = parts[0]?.trim() || "";
+      if (!name) continue;
+      const catName = parts[1]?.trim() || "";
+      const categoryId = catName ? catByName.get(norm(catName)) ?? null : null;
+      if (catName && !categoryId) unmatched.add(catName);
+      const description = parts.slice(2).join(" ").trim();
+      rows.push({ name, categoryId, description });
+    }
+    return { rows, unmatched: Array.from(unmatched) };
+  };
+
+  const handleImport = () => {
+    const { rows, unmatched } = parseImport(importText);
+    if (!rows.length) {
+      setImportNotice("No se detectaron filas válidas. Usa: Nombre, Categoría, Descripción");
+      return;
+    }
+    const next = [...planned, ...rows];
+    set("plannedGames", next);
+    setImportText("");
+    setImportNotice(
+      unmatched.length
+        ? `${rows.length} juego(s) importado(s). Categoría(s) no encontrada(s): ${unmatched.join(", ")} (quedaron sin categoría).`
+        : `${rows.length} juego(s) importado(s) correctamente.`,
+    );
+  };
 
   const planned = data.plannedGames ?? [];
   const updatePlanned = (i: number, key: "name" | "description", value: string) =>
@@ -210,6 +255,23 @@ export function PageEditor({
               <h2 className="mb-2 text-sm font-black uppercase tracking-wider text-white">Juegos por subir ({planned.length})</h2>
               <p className="mb-4 text-xs text-zinc-500">Lista manual tipo Excel para juegos que todavía no subiste como publicación. El orden de las filas es el orden en que se muestran.</p>
               <div className="space-y-3">
+                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                  <label className="labelCls">Importar desde Excel / CSV</label>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    rows={3}
+                    placeholder="Copiar y pegar desde Excel:\nNombre	Categoría	Descripción\nElden Fantasy	RPG	Un juego de rol épico\nMisterio en la Niebla	Aventura	...pégalo todo de una vez."
+                    className={inputCls}
+                  />
+                  {importNotice && <p className={`mt-1.5 text-xs ${importNotice.startsWith("No") ? "text-red-400" : "text-emerald-400"}`}>{importNotice}</p>}
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={handleImport} className={cn(btnSecondary, "shrink-0")} disabled={!importText.trim()}>
+                      <FaClipboard /> Importar filas pegadas
+                    </button>
+                    <p className="text-xs text-zinc-500 flex-1">Columnas: Nombre · Categoría · Descripción (separadas por tab, coma o punto y coma).</p>
+                  </div>
+                </div>
                 {planned.map((g, i) => (
                   <div key={g.id ?? i} className="grid gap-2 rounded-xl border border-white/10 bg-black/30 p-3 lg:grid-cols-[1fr_220px_1.6fr_auto]">
                     <input value={g.name} onChange={(e) => updatePlanned(i, "name", e.target.value)} placeholder="Nombre del juego" className={inputCls} />
