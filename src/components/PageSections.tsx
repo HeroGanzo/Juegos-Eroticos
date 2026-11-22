@@ -1,12 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { asc, desc, eq } from "drizzle-orm";
-import { FaCheck, FaCrown, FaEnvelope, FaExternalLinkAlt, FaMapMarkerAlt, FaPhone, FaSignInAlt, FaUserPlus, FaWhatsapp } from "react-icons/fa";
+import { FaCheck, FaCrown, FaEnvelope, FaExternalLinkAlt, FaGamepad, FaMapMarkerAlt, FaPhone, FaSignInAlt, FaUserPlus, FaWhatsapp } from "react-icons/fa";
 import { db } from "@/db";
 import { vipPlans, vipRequests } from "@/db/schema";
 import { canAccess, type Viewer } from "@/lib/auth";
 import { socialUrl, type SiteSettings } from "@/lib/constants";
-import { getCategoriesWithCounts, searchPosts } from "@/lib/posts";
+import { getCategoriesWithCounts, searchPosts, type PlannedGameItem } from "@/lib/posts";
 import { btnPrimary, btnSecondary, btnVip, cardCls } from "@/lib/ui";
 import { cn, formatDate } from "@/lib/utils";
 import { Markdown, SectionTitle, SocialLinks } from "./Bits";
@@ -37,6 +37,76 @@ export async function CategoriesGrid() {
           {c.description && <p className="relative mt-2 text-sm text-zinc-400">{c.description}</p>}
         </Link>
       ))}
+    </div>
+  );
+}
+
+export function PlannedGamesList({ items, intro }: { items: PlannedGameItem[]; intro?: string }) {
+  if (!items.length) {
+    return (
+      <div className={cn(cardCls, "p-6 sm:p-10")}>
+        <p className="flex items-center gap-2 text-zinc-400">
+          <FaGamepad /> Todavía no hay juegos en esta lista.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-6">
+      {intro && <Markdown content={intro} />}
+      <div className={cn(cardCls, "overflow-hidden")}>
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-white/10 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                <th className="px-5 py-4">Nombre del juego</th>
+                <th className="px-5 py-4">Categoría</th>
+                <th className="px-5 py-4">Descripción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((g) => (
+                <tr key={g.id} className="border-b border-white/5 align-top last:border-0">
+                  <td className="px-5 py-4 font-bold text-white">{g.name}</td>
+                  <td className="px-5 py-4">
+                    {g.category ? (
+                      <Link
+                        href={`/juegos?cat=${g.category.slug}`}
+                        className="inline-flex rounded-full px-3 py-1 text-xs font-semibold transition hover:brightness-125"
+                        style={{ backgroundColor: `${g.category.color}22`, color: g.category.color, border: `1px solid ${g.category.color}55` }}
+                      >
+                        {g.category.name}
+                      </Link>
+                    ) : (
+                      <span className="text-zinc-500">Sin categoría</span>
+                    )}
+                  </td>
+                  <td className="whitespace-pre-line px-5 py-4 text-zinc-300">{g.description || <span className="text-zinc-500">Sin descripción</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="divide-y divide-white/5 md:hidden">
+          {items.map((g) => (
+            <div key={g.id} className="space-y-2 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-bold text-white">{g.name}</h3>
+                {g.category && (
+                  <Link
+                    href={`/juegos?cat=${g.category.slug}`}
+                    className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                    style={{ backgroundColor: `${g.category.color}22`, color: g.category.color, border: `1px solid ${g.category.color}55` }}
+                  >
+                    {g.category.name}
+                  </Link>
+                )}
+              </div>
+              <p className="whitespace-pre-line text-sm text-zinc-300">{g.description || "Sin descripción"}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

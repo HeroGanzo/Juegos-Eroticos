@@ -20,9 +20,10 @@ import { AccessBadge, Markdown, PlatformChips, PlatformIcon, SectionTitle, Stars
 import { Gallery } from "@/components/Gallery";
 import { LockedPanel } from "@/components/LockedPanel";
 import { PostCard } from "@/components/PostCard";
+import type { DownloadLink } from "@/db/schema";
 import { canAccess, getViewer } from "@/lib/auth";
 import { getPostBySlug, incrementViews, searchPosts } from "@/lib/posts";
-import { btnPrimary, btnSecondary, cardCls, containerCls } from "@/lib/ui";
+import { btnPrimary, btnSecondary, btnVip, cardCls, containerCls } from "@/lib/ui";
 import { cn, formatDate, formatNumber, getVideoEmbed } from "@/lib/utils";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -36,6 +37,38 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: post.accessLevel === "public" ? post.excerpt || undefined : undefined,
     openGraph: post.coverImage ? { images: [post.coverImage] } : undefined,
   };
+}
+
+function isVipLink(l: DownloadLink) {
+  return l.access === "vip";
+}
+
+function DownloadLinksList({ links }: { links: DownloadLink[] }) {
+  if (!links.length) return <p className="text-sm text-zinc-400">Todavía no hay enlaces de descarga.</p>;
+  return (
+    <div className="space-y-2.5">
+      {links.map((l, i) => (
+        <a
+          key={`${l.url}-${i}`}
+          href={l.url}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-brand hover:bg-brand/10"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/20 text-brand">
+              {l.platform ? <PlatformIcon platform={l.platform} /> : <FaDownload />}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-white">{l.label}</span>
+              <span className="block text-xs text-zinc-400">{[l.platform, l.size].filter(Boolean).join(" · ")}</span>
+            </span>
+          </span>
+          <FaExternalLinkAlt className="shrink-0 text-xs text-zinc-500 group-hover:text-brand" />
+        </a>
+      ))}
+    </div>
+  );
 }
 
 function Block({ title, icon, children, id }: { title: string; icon: ReactNode; children: ReactNode; id?: string }) {
@@ -55,6 +88,10 @@ export default async function GamePage({ params }: Props) {
   if (!post || (post.status !== "published" && !viewer.isAdmin)) notFound();
 
   const allowed = canAccess(viewer, post.accessLevel);
+  const canSeeVipLinks = viewer.isVip;
+  const commonLinks = post.downloadLinks.filter((l) => !isVipLink(l));
+  const vipLinks = post.downloadLinks.filter(isVipLink);
+  const visibleDownloadLinks = [...commonLinks, ...(canSeeVipLinks ? vipLinks : [])];
   if (allowed) await incrementViews(post.id);
   const related = post.categories.length
     ? await searchPosts({ categoryIds: post.categories.map((c) => c.id), excludeId: post.id, perPage: 4, sort: "puntuacion" })
@@ -112,8 +149,8 @@ export default async function GamePage({ params }: Props) {
                 </div>
               )}
             </div>
-            {allowed && post.downloadLinks.length > 0 && (
-              <a href="#descargas" className={cn(btnPrimary, "mt-4 w-full py-3 text-base")}>
+            {allowed && visibleDownloadLinks.length > 0 && (
+              <a href={commonLinks.length ? "#descargas" : "#descargas-vip"} className={cn(btnPrimary, "mt-4 w-full py-3 text-base")}>
                 <FaDownload /> Descargar
               </a>
             )}
@@ -223,33 +260,27 @@ export default async function GamePage({ params }: Props) {
 
             <aside className="space-y-6">
               <Block title="Enlaces de descarga" icon={<FaDownload />} id="descargas">
-                {post.downloadLinks.length ? (
-                  <div className="space-y-2.5">
-                    {post.downloadLinks.map((l, i) => (
-                      <a
-                        key={`${l.url}-${i}`}
-                        href={l.url}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                        className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-brand hover:bg-brand/10"
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/20 text-brand">
-                            {l.platform ? <PlatformIcon platform={l.platform} /> : <FaDownload />}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-semibold text-white">{l.label}</span>
-                            <span className="block text-xs text-zinc-400">{[l.platform, l.size].filter(Boolean).join(" · ")}</span>
-                          </span>
-                        </span>
-                        <FaExternalLinkAlt className="shrink-0 text-xs text-zinc-500 group-hover:text-brand" />
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-zinc-400">Todavía no hay enlaces de descarga.</p>
-                )}
+                <DownloadLinksList links={commonLinks} />
               </Block>
+              {vipLinks.length > 0 && (
+                <Block title="Enlaces VIP" icon={<FaCrown />} id="descargas-vip">
+                  {canSeeVipLinks ? (
+                    <DownloadLinksList links={vipLinks} />
+                  ) : (
+                    <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                      <p className="flex items-center gap-2 font-bold">
+                        <FaCrown /> Contenido exclusivo VIP
+                      </p>
+                      <p className="mt-2 text-amber-100/80">
+                        Hay {vipLinks.length} {vipLinks.length === 1 ? "enlace exclusivo" : "enlaces exclusivos"} para miembros VIP. Hazte VIP para verlos.
+                      </p>
+                      <Link href="/vip" className={cn(btnVip, "mt-4 w-full")}>
+                        <FaCrown /> Ver planes VIP
+                      </Link>
+                    </div>
+                  )}
+                </Block>
+              )}
               <div className={cn(cardCls, "p-5")}>
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-zinc-400">Ficha</h3>
                 <dl className="space-y-2 text-sm">

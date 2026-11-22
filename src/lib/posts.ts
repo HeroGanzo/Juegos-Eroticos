@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   categories,
   pages,
+  plannedGames,
   postCategories,
   postTypes,
   posts,
@@ -218,10 +219,51 @@ export async function getCategoriesWithCounts() {
       color: categories.color,
       description: categories.description,
       sortOrder: categories.sortOrder,
-      count: sql<number>`(select count(*)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id} and p.status = 'published')`,
+      /** Publicaciones visibles en el sitio (publicadas). */
+      count: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id} and p.status = 'published')`,
+      /** Publicaciones en borrador (solo para el panel admin). */
+      draftCount: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id} and p.status = 'draft')`,
+      /** Total asignado a la categoría (publicadas + borradores). */
+      totalCount: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id})`,
     })
     .from(categories)
     .orderBy(asc(categories.sortOrder), asc(categories.name));
+}
+
+export type PlannedGameItem = {
+  id: number;
+  name: string;
+  description: string;
+  sortOrder: number;
+  category: CategoryRef | null;
+};
+
+export async function getPlannedGamesForPage(pageId: number): Promise<PlannedGameItem[]> {
+  const rows = await db
+    .select({
+      id: plannedGames.id,
+      name: plannedGames.name,
+      description: plannedGames.description,
+      sortOrder: plannedGames.sortOrder,
+      categoryId: categories.id,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+      categoryColor: categories.color,
+    })
+    .from(plannedGames)
+    .leftJoin(categories, eq(plannedGames.categoryId, categories.id))
+    .where(eq(plannedGames.pageId, pageId))
+    .orderBy(asc(plannedGames.sortOrder), asc(plannedGames.id));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    sortOrder: r.sortOrder,
+    category:
+      r.categoryId !== null
+        ? { id: r.categoryId, name: r.categoryName ?? "", slug: r.categorySlug ?? "", color: r.categoryColor ?? "#ec4899" }
+        : null,
+  }));
 }
 
 export async function getAllCategories() {

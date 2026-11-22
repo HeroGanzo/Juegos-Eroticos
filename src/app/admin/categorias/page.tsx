@@ -72,7 +72,7 @@ export default async function AdminCategoriesPage() {
             <div className="mt-3 flex items-center justify-between gap-3 text-xs text-zinc-500">
               <span className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                {c.count} publicaciones · /juegos?cat={c.slug}
+                {c.totalCount} en total ({c.count} publicadas{c.draftCount ? `, ${c.draftCount} borradores` : ""}) · /juegos?cat={c.slug}
               </span>
               <form action={deleteCategoryForm}>
                 <input type="hidden" name="id" value={c.id} />

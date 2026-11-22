@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { FaArrowLeft, FaEye, FaSave } from "react-icons/fa";
+import { FaArrowLeft, FaEye, FaPlus, FaSave, FaTrash } from "react-icons/fa";
 import { savePage, type PageInput } from "@/app/actions/admin";
 import type { AccessLevel, MenuSection, PageType } from "@/db/schema";
 import { ACCESS_INFO, ACCESS_LEVELS, MENU_SECTIONS, PAGE_TYPES, PLATFORMS, SORT_OPTIONS } from "@/lib/constants";
@@ -17,7 +17,7 @@ export function PageEditor({
   savedNotice,
 }: {
   initial: PageInput;
-  categories: { slug: string; name: string }[];
+  categories: { id?: number; slug: string; name: string; color?: string }[];
   postTypes: { slug: string; name: string; icon: string }[];
   savedNotice?: string;
 }) {
@@ -31,6 +31,12 @@ export function PageEditor({
   const set = <K extends keyof PageInput>(key: K, value: PageInput[K]) => setData((d) => ({ ...d, [key]: value }));
   const setFilter = (key: keyof PageInput["filters"], value: string) =>
     setData((d) => ({ ...d, filters: { ...d.filters, [key]: value || undefined } }));
+
+  const planned = data.plannedGames ?? [];
+  const updatePlanned = (i: number, key: "name" | "description", value: string) =>
+    set("plannedGames", planned.map((g, k) => (k === i ? { ...g, [key]: value } : g)));
+  const updatePlannedCategory = (i: number, value: string) =>
+    set("plannedGames", planned.map((g, k) => (k === i ? { ...g, categoryId: value ? Number(value) : null } : g)));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +201,42 @@ export function PageEditor({
                     ))}
                   </select>
                 </div>
+              </div>
+            </section>
+          )}
+
+          {data.type === "wishlist" && (
+            <section className={cn(cardCls, "p-5")}>
+              <h2 className="mb-2 text-sm font-black uppercase tracking-wider text-white">Juegos por subir ({planned.length})</h2>
+              <p className="mb-4 text-xs text-zinc-500">Lista manual tipo Excel para juegos que todavía no subiste como publicación. El orden de las filas es el orden en que se muestran.</p>
+              <div className="space-y-3">
+                {planned.map((g, i) => (
+                  <div key={g.id ?? i} className="grid gap-2 rounded-xl border border-white/10 bg-black/30 p-3 lg:grid-cols-[1fr_220px_1.6fr_auto]">
+                    <input value={g.name} onChange={(e) => updatePlanned(i, "name", e.target.value)} placeholder="Nombre del juego" className={inputCls} />
+                    <select value={g.categoryId ?? ""} onChange={(e) => updatePlannedCategory(i, e.target.value)} className={inputCls}>
+                      <option value="">Sin categoría</option>
+                      {categories
+                        .filter((c) => typeof c.id === "number")
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                    <textarea value={g.description} onChange={(e) => updatePlanned(i, "description", e.target.value)} placeholder="Descripción" rows={2} className={inputCls} />
+                    <button
+                      type="button"
+                      onClick={() => set("plannedGames", planned.filter((_, k) => k !== i))}
+                      className="grid place-items-center rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-300 hover:bg-red-500/20"
+                      title="Quitar fila"
+                    >
+                      <FaTrash />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => set("plannedGames", [...planned, { name: "", categoryId: null, description: "" }])} className={btnSecondary}>
+                  <FaPlus /> Añadir juego
+                </button>
               </div>
             </section>
           )}

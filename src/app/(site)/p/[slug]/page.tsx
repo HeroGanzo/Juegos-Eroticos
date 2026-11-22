@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { FaCrown, FaEnvelope, FaFileAlt, FaGamepad, FaTags, FaUser } from "react-icons/fa";
+import { FaCrown, FaEnvelope, FaFileAlt, FaGamepad, FaListAlt, FaTags, FaUser } from "react-icons/fa";
 import { Markdown, Notice, PageHeader } from "@/components/Bits";
 import { GameBrowser, pickParams } from "@/components/GameBrowser";
 import { LockedPanel } from "@/components/LockedPanel";
-import { AboutSection, CategoriesGrid, ContactSection, VipSection } from "@/components/PageSections";
+import { AboutSection, CategoriesGrid, ContactSection, PlannedGamesList, VipSection } from "@/components/PageSections";
 import { canAccess, getViewer } from "@/lib/auth";
-import { getAllCategories, getAllPostTypes, getPageBySlug } from "@/lib/posts";
+import { getAllCategories, getAllPostTypes, getPageBySlug, getPlannedGamesForPage } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
 import { cardCls, containerCls } from "@/lib/ui";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 const ICONS = {
   content: <FaFileAlt />,
   games: <FaGamepad />,
+  wishlist: <FaListAlt />,
   categories: <FaTags />,
   about: <FaUser />,
   contact: <FaEnvelope />,
@@ -61,6 +62,11 @@ export default async function DynamicPage({ params, searchParams }: Props) {
             />
           </div>
         );
+        break;
+      }
+      case "wishlist": {
+        const planned = await getPlannedGamesForPage(page.id);
+        body = <PlannedGamesList items={planned} intro={page.content} />;
         break;
       }
       case "categories":

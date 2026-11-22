@@ -41,6 +41,7 @@ export const PLATFORMS = ["Windows", "Android", "Mac", "Linux", "iOS", "Web"];
 export const PAGE_TYPES: { value: PageType; label: string; description: string }[] = [
   { value: "content", label: "Página de contenido", description: "Texto libre con formato: términos, noticias, información, etc." },
   { value: "games", label: "Lista de juegos", description: "Listado filtrado por categoría, plataforma, tipo de publicación o acceso." },
+  { value: "wishlist", label: "Lista de juegos por subir", description: "Tabla manual tipo Excel con juegos aún no publicados: nombre, categoría y descripción." },
   { value: "categories", label: "Categorías", description: "Muestra todas las categorías con su número de juegos." },
   { value: "about", label: "Sobre mí", description: "Muestra la sección «Sobre mí» configurada en el panel." },
   { value: "contact", label: "Contacto", description: "Datos de contacto, redes sociales y formulario de contacto." },
