@@ -30,6 +30,7 @@ export type PostListItem = {
   createdAt: Date;
   postType: PostTypeRef | null;
   categories: CategoryRef[];
+  primaryCategoryId: number | null;
 };
 
 export type PostSearch = {
@@ -63,7 +64,10 @@ function orderFor(sort?: string) {
   }
 }
 
-export async function getCategoriesForPosts(ids: number[]): Promise<Map<number, CategoryRef[]>> {
+export async function getCategoriesForPosts(
+  ids: number[],
+  primaryByPost?: Map<number, number | null>,
+): Promise<Map<number, CategoryRef[]>> {
   const map = new Map<number, CategoryRef[]>();
   if (!ids.length) return map;
   const rows = await db
@@ -77,11 +81,23 @@ export async function getCategoriesForPosts(ids: number[]): Promise<Map<number, 
     .from(postCategories)
     .innerJoin(categories, eq(postCategories.categoryId, categories.id))
     .where(inArray(postCategories.postId, ids))
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
+    .orderBy(asc(sql`lower(${categories.name})`), asc(categories.id));
   for (const r of rows) {
     const list = map.get(r.postId) ?? [];
     list.push({ id: r.id, name: r.name, slug: r.slug, color: r.color });
     map.set(r.postId, list);
+  }
+  // La categoría principal va primera en cada publicación.
+  if (primaryByPost) {
+    for (const [postId, primaryId] of primaryByPost) {
+      const list = map.get(postId);
+      if (!list || !primaryId) continue;
+      const idx = list.findIndex((c) => c.id === primaryId);
+      if (idx > 0) {
+        const [primary] = list.splice(idx, 1);
+        list.unshift(primary);
+      }
+    }
   }
   return map;
 }
@@ -142,6 +158,7 @@ export async function searchPosts(s: PostSearch): Promise<PostSearchResult> {
       views: posts.views,
       status: posts.status,
       createdAt: posts.createdAt,
+      primaryCategoryId: posts.primaryCategoryId,
       typeId: postTypes.id,
       typeName: postTypes.name,
       typeSlug: postTypes.slug,
@@ -154,7 +171,10 @@ export async function searchPosts(s: PostSearch): Promise<PostSearchResult> {
     .limit(perPage)
     .offset((page - 1) * perPage);
 
-  const cats = await getCategoriesForPosts(rows.map((r) => r.id));
+  const cats = await getCategoriesForPosts(
+    rows.map((r) => r.id),
+    new Map(rows.map((r) => [r.id, r.primaryCategoryId])),
+  );
   const items: PostListItem[] = rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -173,6 +193,7 @@ export async function searchPosts(s: PostSearch): Promise<PostSearchResult> {
         ? { id: r.typeId, name: r.typeName ?? "", slug: r.typeSlug ?? "", icon: r.typeIcon ?? "" }
         : null,
     categories: cats.get(r.id) ?? [],
+    primaryCategoryId: r.primaryCategoryId,
   }));
   return { items, total: count, page, pages: Math.max(1, Math.ceil(count / perPage)) };
 }
@@ -186,7 +207,7 @@ export async function getPostBySlug(slug: string) {
     .limit(1);
   const row = rows[0];
   if (!row) return null;
-  const cats = await getCategoriesForPosts([row.post.id]);
+  const cats = await getCategoriesForPosts([row.post.id], new Map([[row.post.id, row.post.primaryCategoryId]]));
   return { ...row.post, postType: row.type, categories: cats.get(row.post.id) ?? [] };
 }
 
@@ -220,14 +241,17 @@ export async function getCategoriesWithCounts() {
       description: categories.description,
       sortOrder: categories.sortOrder,
       /** Publicaciones visibles en el sitio (publicadas). */
-      count: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id} and p.status = 'published')`,
+      count: sql<number>`count(distinct ${posts.id}) filter (where ${posts.status} = 'published')::int`,
       /** Publicaciones en borrador (solo para el panel admin). */
-      draftCount: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id} and p.status = 'draft')`,
+      draftCount: sql<number>`count(distinct ${posts.id}) filter (where ${posts.status} = 'draft')::int`,
       /** Total asignado a la categoría (publicadas + borradores). */
-      totalCount: sql<number>`(select count(distinct p.id)::int from post_categories pc inner join posts p on p.id = pc.post_id where pc.category_id = ${categories.id})`,
+      totalCount: sql<number>`count(distinct ${posts.id})::int`,
     })
     .from(categories)
-    .orderBy(asc(categories.sortOrder), asc(categories.name));
+    .leftJoin(postCategories, eq(postCategories.categoryId, categories.id))
+    .leftJoin(posts, eq(posts.id, postCategories.postId))
+    .groupBy(categories.id)
+    .orderBy(asc(sql`lower(${categories.name})`), asc(categories.id));
 }
 
 export type PlannedGameItem = {
@@ -267,7 +291,7 @@ export async function getPlannedGamesForPage(pageId: number): Promise<PlannedGam
 }
 
 export async function getAllCategories() {
-  return db.select().from(categories).orderBy(asc(categories.sortOrder), asc(categories.name));
+  return db.select().from(categories).orderBy(asc(sql`lower(${categories.name})`), asc(categories.id));
 }
 
 export async function getAllPostTypes() {

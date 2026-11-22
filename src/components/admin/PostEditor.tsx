@@ -57,6 +57,8 @@ export function PostEditor({
 
   const customPlatforms = data.platforms.filter((p) => !PLATFORMS.includes(p));
 
+  const setPrimary = (id: number | null) => set("primaryCategoryId", id);
+
   const addCategory = () => {
     const name = newCat.trim();
     if (!name) return;
@@ -65,6 +67,7 @@ export function PostEditor({
       if (res.ok) {
         setCats((c) => [...c, { id: res.category.id, name: res.category.name, color: res.category.color }]);
         setData((d) => ({ ...d, categoryIds: [...d.categoryIds, res.category.id] }));
+        if (!data.primaryCategoryId) setData((d) => ({ ...d, primaryCategoryId: res.category.id }));
         setNewCat("");
       } else {
         setError(res.error);
@@ -351,14 +354,45 @@ export function PostEditor({
 
           <Card title={`Categorías (${data.categoryIds.length})`}>
             <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
-              {cats.map((c) => (
-                <label key={c.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-zinc-200 hover:bg-white/5">
-                  <input type="checkbox" checked={data.categoryIds.includes(c.id)} onChange={() => set("categoryIds", toggleIn(data.categoryIds, c.id))} className="accent-brand" />
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                  {c.name}
-                </label>
-              ))}
+              {cats.map((c) => {
+                const selected = data.categoryIds.includes(c.id);
+                const isPrimary = data.primaryCategoryId === c.id;
+                return (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-zinc-200 hover:bg-white/5">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => {
+                        set("categoryIds", toggleIn(data.categoryIds, c.id));
+                        if (!selected && !data.primaryCategoryId) setPrimary(c.id);
+                        if (!selected && data.primaryCategoryId === c.id) setPrimary(null);
+                      }}
+                      className="accent-brand"
+                    />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                    {c.name}
+                    {isPrimary && (
+                      <span className="ml-2 flex items-center gap-1 text-xs text-brand" title="Categoría principal">
+                        <FaCrown /> Principal
+                      </span>
+                    )}
+                    {selected && !isPrimary && (
+                      <button
+                        type="button"
+                        onClick={() => setPrimary(c.id)}
+                        className="ml-auto p-1 text-zinc-500 hover:text-brand transition"
+                        title="Establecer como principal"
+                      >
+                        <FaStar size={14} />
+                      </button>
+                    )}
+                  </label>
+                );
+              })}
             </div>
+            {data.primaryCategoryId && !data.categoryIds.includes(data.primaryCategoryId) && (
+              <p className="mt-2 text-xs text-red-400">La categoría principal ya no está seleccionada; elige una principal de la lista.</p>
+            )}
             <div className="mt-3 flex gap-2">
               <input
                 value={newCat}
@@ -376,6 +410,9 @@ export function PostEditor({
                 <FaPlus />
               </button>
             </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              La categoría principal se muestra primero en la ficha del juego.
+            </p>
           </Card>
 
           <Card title="Puntuación">

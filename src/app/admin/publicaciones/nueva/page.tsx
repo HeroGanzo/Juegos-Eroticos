@@ -32,6 +32,7 @@ export default async function NewPostPage() {
           fileSize: "",
           status: "published",
           featured: false,
+          primaryCategoryId: null,
         }}
       />
     </div>

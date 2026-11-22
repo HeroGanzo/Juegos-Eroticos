@@ -93,6 +93,7 @@ export const posts = pgTable("posts", {
   title: text("title").notNull(),
   slug: text("slug").notNull().unique(),
   postTypeId: integer("post_type_id").references(() => postTypes.id, { onDelete: "set null" }),
+  primaryCategoryId: integer("primary_category_id").references(() => categories.id, { onDelete: "set null" }),
   excerpt: text("excerpt").notNull().default(""),
   description: text("description").notNull().default(""),
   rating: real("rating").notNull().default(0),
