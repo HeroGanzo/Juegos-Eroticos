@@ -8,6 +8,7 @@ import { AboutSection, CategoriesGrid, ContactSection, PlannedGamesList, VipSect
 import { canAccess, getViewer } from "@/lib/auth";
 import { getAllCategories, getAllPostTypes, getPageBySlug, getPlannedGamesForPage } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
+import { baseMetadata, siteBaseUrl, jsonLd, breadcrumbJsonLd, organizationJsonLd } from "@/lib/seo";
 import { cardCls, containerCls } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
@@ -16,10 +17,29 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function plainExcerpt(html: string, max = 160): string {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const page = await getPageBySlug(decodeURIComponent(slug));
-  return { title: page?.title ?? "Página no encontrada" };
+  const settings = await getSettings();
+  const base = await siteBaseUrl();
+  const description = page
+    ? page.content
+      ? plainExcerpt(page.content)
+      : `${page.title} — ${settings.siteTitle}`
+    : settings.tagline;
+  return baseMetadata({
+    title: page?.title ?? "Página no encontrada",
+    description,
+    path: page ? `/p/${page.slug}` : "/p",
+  });
 }
 
 const ICONS = {
@@ -40,6 +60,19 @@ export default async function DynamicPage({ params, searchParams }: Props) {
   const [page, viewer] = await Promise.all([getPageBySlug(decodeURIComponent(slug)), getViewer()]);
   if (!page || (!page.published && !viewer.isAdmin)) notFound();
   if (page.type === "link") redirect(page.externalUrl || "/");
+
+  const base = await siteBaseUrl();
+  const pageUrl = `${base}/p/${page.slug}`;
+  const schema = jsonLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationJsonLd(settings.socials, base),
+      breadcrumbJsonLd([
+        { name: "Inicio", url: base },
+        { name: page.title, url: pageUrl },
+      ]),
+    ],
+  });
 
   const allowed = canAccess(viewer, page.accessLevel);
 
@@ -97,6 +130,7 @@ export default async function DynamicPage({ params, searchParams }: Props) {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schema }} key="schema-page" />
       <PageHeader title={page.title} icon={ICONS[page.type]} />
       <div className={cn(containerCls, "space-y-6 py-10")}>
         {!page.published && <Notice>Esta página es un borrador: solo los administradores pueden verla.</Notice>}

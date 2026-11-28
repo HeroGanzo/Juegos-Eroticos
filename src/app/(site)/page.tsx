@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { FaAndroid, FaArrowRight, FaCheck, FaClock, FaCrown, FaFire, FaLock, FaSearch, FaTags, FaUnlock, FaUserPlus, FaWindows } from "react-icons/fa";
 import { SectionTitle } from "@/components/Bits";
@@ -5,13 +6,29 @@ import { PostCard } from "@/components/PostCard";
 import { canAccess, getViewer } from "@/lib/auth";
 import { getCategoriesWithCounts, searchPosts } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
+import { baseMetadata, organizationJsonLd, webSiteJsonLd, jsonLd, siteBaseUrl } from "@/lib/seo";
 import { btnPrimary, btnSecondary, btnVip, containerCls } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  return baseMetadata({
+    title: settings.siteTitle,
+    description: settings.tagline,
+    path: "/",
+    image: settings.heroImage || undefined,
+  });
+}
+
 export default async function HomePage() {
   const settings = await getSettings();
+  const base = await siteBaseUrl();
   const viewer = await getViewer();
   const h = settings.home;
+  const schema = jsonLd({
+    "@context": "https://schema.org",
+    "@graph": [organizationJsonLd(settings.socials, base), webSiteJsonLd(base)],
+  });
   const [featured, latest, vip, cats] = await Promise.all([
     h.showFeatured ? searchPosts({ featured: true, perPage: 8, sort: "recientes" }) : null,
     h.showLatest ? searchPosts({ perPage: 8, sort: "recientes" }) : null,
@@ -21,6 +38,11 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: schema }}
+        key="schema-home"
+      />
       {settings.heroEnabled && (
         <section className="relative overflow-hidden border-b border-white/5">
           {settings.heroImage && (

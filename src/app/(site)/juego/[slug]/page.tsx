@@ -23,6 +23,7 @@ import { PostCard } from "@/components/PostCard";
 import type { DownloadLink } from "@/db/schema";
 import { canAccess, getViewer } from "@/lib/auth";
 import { getPostBySlug, incrementViews, searchPosts } from "@/lib/posts";
+import { baseMetadata, siteBaseUrl, jsonLd, videoGameJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { btnPrimary, btnSecondary, btnVip, cardCls, containerCls } from "@/lib/ui";
 import { cn, formatDate, formatNumber, getVideoEmbed } from "@/lib/utils";
 
@@ -32,11 +33,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
   if (!post) return { title: "Juego no encontrado" };
-  return {
+  const base = await siteBaseUrl();
+  const image = post.coverImage;
+  return baseMetadata({
     title: post.title,
-    description: post.accessLevel === "public" ? post.excerpt || undefined : undefined,
-    openGraph: post.coverImage ? { images: [post.coverImage] } : undefined,
-  };
+    description:
+      post.accessLevel === "public" && post.excerpt
+        ? post.excerpt
+        : `Descubre ${post.title}, un juego para adultos disponible en Juegos Eróticos.`,
+    path: `/juego/${post.slug}`,
+    image,
+  });
 }
 
 function isVipLink(l: DownloadLink) {
@@ -89,6 +96,27 @@ export default async function GamePage({ params }: Props) {
 
   const allowed = canAccess(viewer, post.accessLevel);
   const canSeeVipLinks = viewer.isVip;
+  const base = await siteBaseUrl();
+  const gameUrl = `${base}/juego/${post.slug}`;
+  const schema = jsonLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      videoGameJsonLd({
+        url: gameUrl,
+        name: post.title,
+        description: post.accessLevel === "public" ? post.excerpt : undefined,
+        image: post.coverImage,
+        genre: post.categories.map((c) => c.name),
+        platforms: post.platforms,
+        publisher: "Juegos Eróticos",
+      }),
+      breadcrumbJsonLd([
+        { name: "Inicio", url: base },
+        { name: "Juegos", url: `${base}/juegos` },
+        { name: post.title, url: gameUrl },
+      ]),
+    ],
+  });
   const commonLinks = post.downloadLinks.filter((l) => !isVipLink(l));
   const vipLinks = post.downloadLinks.filter(isVipLink);
   const visibleDownloadLinks = [...commonLinks, ...(canSeeVipLinks ? vipLinks : [])];
@@ -107,6 +135,7 @@ export default async function GamePage({ params }: Props) {
 
   return (
     <div className="relative">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schema }} key="schema-game" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[460px] overflow-hidden">
         {post.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element
