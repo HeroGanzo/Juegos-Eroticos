@@ -6,17 +6,31 @@ import { SetupScreen } from "@/components/SetupScreen";
 import { getViewer } from "@/lib/auth";
 import { getDbStatus } from "@/lib/db-status";
 import { getSettings } from "@/lib/settings";
+import { baseMetadata, siteBaseUrl, organizationJsonLd, webSiteJsonLd, jsonLd } from "@/lib/seo";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
+export async function metadataBase(): Promise<URL> {
+  return new URL(await siteBaseUrl());
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSettings();
+  const baseMeta = await baseMetadata({ title: s.siteTitle, description: s.tagline, path: "/" });
   return {
+    ...baseMeta,
     title: { default: `${s.siteTitle} — ${s.tagline}`, template: `%s | ${s.siteTitle}` },
     description: s.tagline,
-    icons: s.faviconUrl ? { icon: s.faviconUrl } : undefined,
-    other: { RATING: "RTA-5042-1996-1400-1577-RTA" },
+    icons: s.faviconUrl ? { icon: s.faviconUrl } : [{ url: "/icon.svg" }],
+    other: {
+      RATING: "RTA-5042-1996-1400-1577-RTA",
+      "theme-color": s.primaryColor ?? "#ec4899",
+    },
+    openGraph: {
+      ...baseMeta.openGraph,
+      images: s.heroImage ? [{ url: s.heroImage, width: 1200, height: 630, alt: s.siteTitle }] : undefined,
+    },
   };
 }
 

@@ -54,6 +54,11 @@ export function SiteFooter({ settings, items }: { settings: SiteSettings; items:
                 Buscar juegos
               </Link>
             </li>
+            <li>
+              <Link href="/preguntas-frecuentes" className="text-zinc-400 transition hover:text-brand">
+                Preguntas frecuentes
+              </Link>
+            </li>
           </ul>
         </div>
 

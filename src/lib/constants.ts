@@ -129,6 +129,7 @@ export type SiteSettings = {
   contactAddress: string;
   contactFormEnabled: boolean;
   socials: Record<SocialKey, string>;
+  siteUrl: string;
   ageGateEnabled: boolean;
   ageGateTitle: string;
   ageGateText: string;
@@ -180,6 +181,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   contactPhone: "",
   contactAddress: "",
   contactFormEnabled: true,
+  siteUrl: "https://juegosparaelganso.com",
   socials: {
     whatsapp: "",
     facebook: "",

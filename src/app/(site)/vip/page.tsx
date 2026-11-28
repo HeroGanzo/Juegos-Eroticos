@@ -4,10 +4,18 @@ import { PageHeader } from "@/components/Bits";
 import { VipSection } from "@/components/PageSections";
 import { getViewer } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { baseMetadata, siteBaseUrl } from "@/lib/seo";
 import { containerCls } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Acceso VIP" };
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  return baseMetadata({
+    title: settings.vipTitle,
+    description: settings.vipText,
+    path: "/vip",
+  });
+}
 
 export default async function VipPage() {
   const settings = await getSettings();

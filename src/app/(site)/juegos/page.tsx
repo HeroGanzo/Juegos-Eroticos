@@ -5,16 +5,47 @@ import { GameBrowser, pickParams } from "@/components/GameBrowser";
 import { getViewer } from "@/lib/auth";
 import { getAllCategories, getAllPostTypes } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
+import { baseMetadata, siteBaseUrl } from "@/lib/seo";
 import { containerCls } from "@/lib/ui";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Buscar juegos" };
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const sp = pickParams(await searchParams);
+  const settings = await getSettings();
+  const base = await siteBaseUrl();
+
+  const parts: string[] = [];
+  if (sp.q) parts.push(`búsqueda "${sp.q}"`);
+  if (sp.cat) parts.push(`categoría "${sp.cat}"`);
+  if (sp.plat) parts.push(`plataforma "${sp.plat}"`);
+  if (sp.acceso) parts.push(`acceso "${sp.acceso}"`);
+  if (sp.orden) parts.push(`orden "${sp.orden}"`);
+
+  const query = Object.entries(sp)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k, v]) => {
+      const value = Array.isArray(v) ? v.join(",") : (v as string);
+      return `${encodeURIComponent(k)}=${encodeURIComponent(value)}`;
+    })
+    .join("&");
+  const path = query ? `/juegos?${query}` : "/juegos";
+
+  return baseMetadata({
+    title: parts.length ? `Juegos — ${parts.join(", ")}` : "Juegos",
+    description: parts.length
+      ? `Juegos adultos filtrados por ${parts.join(", ")}. ${settings.tagline}`
+      : `Busca y filtra juegos para adultos. ${settings.tagline}`,
+    path,
+  });
+}
 
 export default async function JuegosPage({
   searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+}: Props) {
   const sp = pickParams(await searchParams);
   const settings = await getSettings();
   const [viewer, cats, types] = await Promise.all([getViewer(), getAllCategories(), getAllPostTypes()]);
